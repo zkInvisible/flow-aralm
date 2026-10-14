@@ -5,12 +5,14 @@ import html
 import json
 import logging
 import os
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -18,6 +20,31 @@ from typing import Any, Iterable
 LOGGER = logging.getLogger("skinflow_alarm")
 DEFAULT_API_URL = "https://api.skinflow.gg/ticket-giveaway"
 SKINFLOW_URL = "https://skinflow.gg/free-skins"
+
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        if self.path not in ("/", "/health"):
+            self.send_error(404)
+            return
+        body = b"OK\n"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        LOGGER.debug("Health server: " + format, *args)
+
+
+def start_health_server() -> ThreadingHTTPServer:
+    port_value = os.getenv("PORT", "10000")
+    server = ThreadingHTTPServer(("0.0.0.0", int(port_value)), HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    LOGGER.info("Health endpoint 0.0.0.0:%s/health üzerinde hazır", port_value)
+    return server
 
 
 def load_dotenv(path: Path = Path(".env")) -> None:
@@ -288,22 +315,27 @@ def main() -> int:
     skinflow = SkinflowClient(config)
     telegram = None if args.dry_run else TelegramClient(config)
     state = AlertState(config.state_file)
+    health_server = None if args.once else start_health_server()
 
-    while True:
-        try:
-            run_cycle(config, skinflow, telegram, state, args.dry_run)
-        except (urllib.error.URLError, TimeoutError, ValueError, OSError) as error:
-            LOGGER.error("Kontrol başarısız: %s", error)
-            if args.once:
-                return 1
-        except Exception:
-            LOGGER.exception("Beklenmeyen hata")
-            if args.once:
-                return 1
+    try:
+        while True:
+            try:
+                run_cycle(config, skinflow, telegram, state, args.dry_run)
+            except (urllib.error.URLError, TimeoutError, ValueError, OSError) as error:
+                LOGGER.error("Kontrol başarısız: %s", error)
+                if args.once:
+                    return 1
+            except Exception:
+                LOGGER.exception("Beklenmeyen hata")
+                if args.once:
+                    return 1
 
-        if args.once:
-            return 0
-        time.sleep(config.poll_seconds)
+            if args.once:
+                return 0
+            time.sleep(config.poll_seconds)
+    finally:
+        if health_server is not None:
+            health_server.shutdown()
 
 
 if __name__ == "__main__":

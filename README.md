@@ -44,6 +44,19 @@ python skinflow_alarm.py --once
 
 Bot çalışır durumda kalmalıdır. Windows açılışında otomatik çalışması için Görev Zamanlayıcı'da `python.exe` programını, `skinflow_alarm.py` argümanını ve bu klasörü başlangıç dizini olarak kullanabilirsiniz.
 
+## Render
+
+Render Web Service ayarları:
+
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `python skinflow_alarm.py`
+- Health Check Path: `/health`
+- Environment: `TELEGRAM_BOT_TOKEN` ve `TELEGRAM_CHAT_ID`
+
+Uygulama Render'ın `PORT` değişkenini kullanır; bu değişken bulunmazsa otomatik olarak `10000` portunu açar.
+
+Render'ın verdiği servis adresindeki `/health` yoluna 10 dakikadan kısa aralıklarla istek gönderilirse ücretsiz servis boşta kaldığı için uyumaz.
+
 ## Ayarlar
 
 Tüm limitler `.env` içinden değiştirilebilir. Skinflow API'sindeki `giveaway_offered` alanı cent, `total_ticket_amount` alanı toplam katılım bileti olarak değerlendirilir. Aktif çekilişin başlangıç ve bitiş farkı en fazla bir saatse saatlik çekiliş kabul edilir.
