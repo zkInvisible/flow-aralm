@@ -1,0 +1,1 @@
+# Harici Python paketi gerekmiyor; Render build komutuyla uyumluluk için tutulur.
